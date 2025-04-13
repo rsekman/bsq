@@ -3,7 +3,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::ast::{Exp, Identifier, Term, AST};
-use crate::builtins::{attribute, find, find_all, parent, ATTRIBUTE, FIND, FIND_ALL, PARENT};
+use crate::builtins::{
+    attribute, find, find_all, next_element, next_sibling, parent, previous_element,
+    previous_sibling, ATTRIBUTE, FIND, FIND_ALL, NEXT_ELEMENT, NEXT_SIBLING, PARENT,
+    PREVIOUS_ELEMENT, PREVIOUS_SIBLING,
+};
 use crate::error::type_error;
 use crate::val::{Val, ValRef, ValResult};
 
@@ -33,13 +37,7 @@ impl Default for State {
                     func: Rc::new(builtins::attribute),
                 },
             ),
-            (
-                vec![PARENT.to_owned()],
-                Func {
-                    arity: 0,
-                    func: Rc::new(builtins::parent),
-                },
-            ),
+            // Navigation
             (
                 vec![FIND.to_owned()],
                 Func {
@@ -52,6 +50,41 @@ impl Default for State {
                 Func {
                     arity: 1,
                     func: Rc::new(builtins::find_all),
+                },
+            ),
+            (
+                vec![PARENT.to_owned()],
+                Func {
+                    arity: 0,
+                    func: Rc::new(builtins::parent),
+                },
+            ),
+            (
+                vec![NEXT_SIBLING.to_owned()],
+                Func {
+                    arity: 0,
+                    func: Rc::new(builtins::next_sibling),
+                },
+            ),
+            (
+                vec![NEXT_ELEMENT.to_owned()],
+                Func {
+                    arity: 0,
+                    func: Rc::new(builtins::next_element),
+                },
+            ),
+            (
+                vec![PREVIOUS_SIBLING.to_owned()],
+                Func {
+                    arity: 0,
+                    func: Rc::new(builtins::previous_sibling),
+                },
+            ),
+            (
+                vec![PREVIOUS_ELEMENT.to_owned()],
+                Func {
+                    arity: 0,
+                    func: Rc::new(builtins::previous_element),
                 },
             ),
         ]);
@@ -146,6 +179,26 @@ mod builtins {
 
     pub(crate) fn parent(_args: ArgList) -> Box<dyn Eval> {
         let lambda = move |input: ValRef, _| super::parent(input.as_ref());
+        Box::new(lambda)
+    }
+
+    pub(crate) fn next_sibling(_args: ArgList) -> Box<dyn Eval> {
+        let lambda = move |input: ValRef, _| super::next_sibling(input.as_ref());
+        Box::new(lambda)
+    }
+
+    pub(crate) fn next_element(_args: ArgList) -> Box<dyn Eval> {
+        let lambda = move |input: ValRef, _| super::next_element(input.as_ref());
+        Box::new(lambda)
+    }
+
+    pub(crate) fn previous_sibling(_args: ArgList) -> Box<dyn Eval> {
+        let lambda = move |input: ValRef, _| super::previous_sibling(input.as_ref());
+        Box::new(lambda)
+    }
+
+    pub(crate) fn previous_element(_args: ArgList) -> Box<dyn Eval> {
+        let lambda = move |input: ValRef, _| super::previous_element(input.as_ref());
         Box::new(lambda)
     }
 
@@ -308,6 +361,120 @@ where {
     fn parent_of_root_raises() {
         let src = "..";
         let html = "<span><a>Link</a></span>";
+        let parsed_html = parse_html(&mut html.as_bytes());
+        let input = Val::Node(parsed_html.clone());
+
+        let output = compile_and_run(&src, input.into());
+        assert!(output.is_err());
+    }
+
+    #[test]
+    fn next_sibling() {
+        let src = "find(\"span\") | next_sibling()";
+        let html = "<span>Some text</span><a>Link</a>";
+        let parsed_html = parse_html(&mut html.as_bytes());
+        let input = Val::Node(parsed_html.clone());
+
+        let expected = Val::Node(parsed_html.select_first("a").unwrap().as_node().clone());
+        let output = compile_and_run(&src, input.into());
+        assert_eq!(Ok(expected.into()), output);
+    }
+
+    #[test]
+    fn next_sibling_at_end_raises() {
+        let src = "find(\"a\") | next_sibling()";
+        let html = "<span>Some text</span><a>Link</a>";
+        let parsed_html = parse_html(&mut html.as_bytes());
+        let input = Val::Node(parsed_html.clone());
+
+        let output = compile_and_run(&src, input.into());
+        assert!(output.is_err());
+    }
+
+    #[test]
+    fn next_element() {
+        let src = "find(\"span\") | next_element()";
+        let html = "<span>Some text</span>Some text outside tags<a>Link</a>";
+        let parsed_html = parse_html(&mut html.as_bytes());
+        let input = Val::Node(parsed_html.clone());
+
+        let expected = Val::Node(parsed_html.select_first("a").unwrap().as_node().clone());
+        let output = compile_and_run(&src, input.into());
+        assert_eq!(Ok(expected.into()), output);
+    }
+
+    #[test]
+    fn next_element_at_end_raises() {
+        let src = "find(\"a\") | next_element()";
+        let html = "<span>Some text</span>Some text outside tags<a>Link</a>";
+        let parsed_html = parse_html(&mut html.as_bytes());
+        let input = Val::Node(parsed_html.clone());
+
+        let output = compile_and_run(&src, input.into());
+        assert!(output.is_err());
+    }
+
+    #[test]
+    fn next_element_with_none_raises() {
+        let src = "find(\"span\") | next_element()";
+        let html = "<span>Some text</span>Some text outside tags";
+        let parsed_html = parse_html(&mut html.as_bytes());
+        let input = Val::Node(parsed_html.clone());
+
+        let output = compile_and_run(&src, input.into());
+        assert!(output.is_err());
+    }
+
+    #[test]
+    fn previous_sibling() {
+        let src = "find(\"a\") | previous_sibling()";
+        let html = "<span>Some text</span><a>Link</a>";
+        let parsed_html = parse_html(&mut html.as_bytes());
+        let input = Val::Node(parsed_html.clone());
+
+        let expected = Val::Node(parsed_html.select_first("span").unwrap().as_node().clone());
+        let output = compile_and_run(&src, input.into());
+        assert_eq!(Ok(expected.into()), output);
+    }
+
+    #[test]
+    fn previous_sibling_at_begin_raises() {
+        let src = "find(\"span\") | previous_sibling()";
+        let html = "<span>Some text</span><a>Link</a>";
+        let parsed_html = parse_html(&mut html.as_bytes());
+        let input = Val::Node(parsed_html.clone());
+
+        let output = compile_and_run(&src, input.into());
+        assert!(output.is_err());
+    }
+
+    #[test]
+    fn previous_element() {
+        let src = "find(\"a\") | previous_element()";
+        let html = "<span>Some text</span>Some text outside tags<a>Link</a>";
+        let parsed_html = parse_html(&mut html.as_bytes());
+        let input = Val::Node(parsed_html.clone());
+
+        let expected = Val::Node(parsed_html.select_first("span").unwrap().as_node().clone());
+        let output = compile_and_run(&src, input.into());
+        assert_eq!(Ok(expected.into()), output);
+    }
+
+    #[test]
+    fn previous_element_at_begin_raises() {
+        let src = "find(\"span\") | previous_element()";
+        let html = "<span>Some text</span>Some text outside tags<a>Link</a>";
+        let parsed_html = parse_html(&mut html.as_bytes());
+        let input = Val::Node(parsed_html.clone());
+
+        let output = compile_and_run(&src, input.into());
+        assert!(output.is_err());
+    }
+
+    #[test]
+    fn previous_element_with_none_raises() {
+        let src = "find(\"a\") | previous_element()";
+        let html = "Some text outside tags<a>Link</a>";
         let parsed_html = parse_html(&mut html.as_bytes());
         let input = Val::Node(parsed_html.clone());
 

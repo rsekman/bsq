@@ -50,3 +50,17 @@ pub(crate) fn attribute(tree: &Val, attribute: &str) -> ValResult {
         v => Err(type_error("Node", &v)),
     }
 }
+
+pub(crate) static PARENT: &str = "parent";
+pub(crate) fn parent(tree: &Val) -> ValResult {
+    use Val::*;
+    match tree {
+        Node(n) => {
+            let n = n
+                .parent()
+                .ok_or_else(|| "Attempt to take parent of root element".to_owned())?;
+            Ok(Node(n).into())
+        }
+        v => Err(type_error("Node", &v)),
+    }
+}

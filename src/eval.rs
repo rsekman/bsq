@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::ast::{Exp, Identifier, Term, AST};
-use crate::builtins::{attribute, select, select_all, ATTRIBUTE, SELECT, SELECT_ALL};
+use crate::builtins::{
+    attribute, parent, select, select_all, ATTRIBUTE, PARENT, SELECT, SELECT_ALL,
+};
 use crate::error::type_error;
 use crate::val::{Val, ValRef, ValResult};
 
@@ -27,6 +29,20 @@ impl Default for State {
     fn default() -> Self {
         let builtins = HashMap::<Identifier, Func>::from([
             (
+                vec![ATTRIBUTE.to_owned()],
+                Func {
+                    arity: 1,
+                    func: Rc::new(builtins::attribute),
+                },
+            ),
+            (
+                vec![PARENT.to_owned()],
+                Func {
+                    arity: 0,
+                    func: Rc::new(builtins::parent),
+                },
+            ),
+            (
                 vec![SELECT.to_owned()],
                 Func {
                     arity: 1,
@@ -38,13 +54,6 @@ impl Default for State {
                 Func {
                     arity: 1,
                     func: Rc::new(builtins::select_all),
-                },
-            ),
-            (
-                vec![ATTRIBUTE.to_owned()],
-                Func {
-                    arity: 1,
-                    func: Rc::new(builtins::attribute),
                 },
             ),
         ]);
@@ -117,6 +126,7 @@ impl Eval for Term {
             Term::Bool(b) => Ok(Val::Bool(b.clone()).into()),
             Term::Int(i) => Ok(Val::Int(i.clone()).into()),
             Term::Float(f) => Ok(Val::Float(f.clone()).into()),
+            Term::Parent => parent(input.as_ref()),
             _ => todo!("{self:?}: Not implemented"),
         }
     }
@@ -133,6 +143,11 @@ mod builtins {
                 Err(type_error("String", &input))
             }
         };
+        Box::new(lambda)
+    }
+
+    pub(crate) fn parent(_args: ArgList) -> Box<dyn Eval> {
+        let lambda = move |input: ValRef, _| super::parent(input.as_ref());
         Box::new(lambda)
     }
 
@@ -265,5 +280,40 @@ where {
         let expected = Val::Str(url);
         let output = compile_and_run(&src, input.into());
         assert_eq!(Ok(expected.into()), output);
+    }
+
+    #[test]
+    fn parent() {
+        let src = "select(\"a\") | parent()";
+        let html = "<span><a>Link</a></span>";
+        let parsed_html = parse_html(&mut html.as_bytes());
+        let input = Val::Node(parsed_html.clone());
+
+        let expected = Val::Node(parsed_html.select_first("span").unwrap().as_node().clone());
+        let output = compile_and_run(&src, input.into());
+        assert_eq!(Ok(expected.into()), output);
+    }
+
+    #[test]
+    fn parent_dotdot() {
+        let src = "select(\"a\") | ..";
+        let html = "<span><a>Link</a></span>";
+        let parsed_html = parse_html(&mut html.as_bytes());
+        let input = Val::Node(parsed_html.clone());
+
+        let expected = Val::Node(parsed_html.select_first("span").unwrap().as_node().clone());
+        let output = compile_and_run(&src, input.into());
+        assert_eq!(Ok(expected.into()), output);
+    }
+
+    #[test]
+    fn parent_of_root_raises() {
+        let src = "..";
+        let html = "<span><a>Link</a></span>";
+        let parsed_html = parse_html(&mut html.as_bytes());
+        let input = Val::Node(parsed_html.clone());
+
+        let output = compile_and_run(&src, input.into());
+        assert!(output.is_err());
     }
 }

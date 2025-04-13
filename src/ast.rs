@@ -472,7 +472,7 @@ mod tests {
         #[test]
         fn this() {
             let input = ".";
-            let parsed = term(&input);
+            let parsed = term(input);
 
             assert_parse(Term::This, parsed);
         }
@@ -480,7 +480,7 @@ mod tests {
         #[test]
         fn parent() {
             let input = "..";
-            let parsed = term(&input);
+            let parsed = term(input);
 
             assert_parse(Term::Parent, parsed);
         }

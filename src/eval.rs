@@ -99,7 +99,7 @@ pub(crate) trait Eval {
     fn eval(&self, input: ValRef, state: StateRef) -> ValResult;
 }
 
-impl<'a, F> Eval for F
+impl<F> Eval for F
 where
     F: Fn(ValRef, StateRef) -> ValResult,
 {
@@ -154,9 +154,9 @@ impl Eval for Term {
                 func(args.clone()).eval(input, state)
             }
             Term::Str(s) => Ok(Val::Str(s.clone()).into()),
-            Term::Bool(b) => Ok(Val::Bool(b.clone()).into()),
-            Term::Int(i) => Ok(Val::Int(i.clone()).into()),
-            Term::Float(f) => Ok(Val::Float(f.clone()).into()),
+            Term::Bool(b) => Ok(Val::Bool(*b).into()),
+            Term::Int(i) => Ok(Val::Int(*i).into()),
+            Term::Float(f) => Ok(Val::Float(*f).into()),
             Term::Parent => parent(input.as_ref()),
             _ => todo!("{self:?}: Not implemented"),
         }
@@ -169,7 +169,7 @@ mod builtins {
     pub(crate) fn attribute(args: ArgList) -> Box<dyn Eval> {
         let lambda = move |input: ValRef, state| {
             if let Val::Str(attr) = args[0].eval(input.clone(), state)?.as_ref() {
-                super::attribute(input.as_ref(), &attr)
+                super::attribute(input.as_ref(), attr)
             } else {
                 Err(type_error("String", &input))
             }
@@ -205,7 +205,7 @@ mod builtins {
     pub(crate) fn find(args: ArgList) -> Box<dyn Eval> {
         let lambda = move |input: ValRef, state| {
             if let Val::Str(sel) = args[0].eval(input.clone(), state)?.as_ref() {
-                super::find(input.as_ref(), &sel)
+                super::find(input.as_ref(), sel)
             } else {
                 Err(type_error("String", &input))
             }
@@ -216,7 +216,7 @@ mod builtins {
     pub(crate) fn find_all(args: ArgList) -> Box<dyn Eval> {
         let lambda = move |input: ValRef, state| {
             if let Val::Str(sel) = args[0].eval(input.clone(), state)?.as_ref() {
-                super::find_all(input.as_ref(), &sel)
+                super::find_all(input.as_ref(), sel)
             } else {
                 Err(type_error("String", &input))
             }
@@ -245,7 +245,7 @@ mod test {
 
     fn compile_and_run(src: &str, input: ValRef) -> ValResult
 where {
-        let (_, p) = program(&src).unwrap();
+        let (_, p) = program(src).unwrap();
         let state = Rc::new(RefCell::new(State::default()));
         p.eval(input, state)
     }
@@ -268,7 +268,7 @@ where {
         let input = Val::Node(parsed_html.clone());
 
         let expected = Val::Node(parsed_html.select_first("a").unwrap().as_node().clone());
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert_eq!(Ok(expected.into()), output);
     }
 
@@ -283,11 +283,10 @@ where {
             parsed_html
                 .select("li")
                 .unwrap()
-                .into_iter()
                 .map(|n| Val::Node(n.as_node().clone()))
                 .collect(),
         );
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert_eq!(Ok(expected.into()), output);
     }
 
@@ -299,7 +298,7 @@ where {
         let input = Val::Node(parsed_html.clone());
 
         let expected = Val::Vector(vec![]);
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert_eq!(Ok(expected.into()), output);
     }
 
@@ -316,7 +315,7 @@ where {
         let input = Val::Node(a);
 
         let expected = Val::Str(url);
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert_eq!(Ok(expected.into()), output);
     }
 
@@ -329,7 +328,7 @@ where {
         let input = Val::Node(parsed_html.clone());
 
         let expected = Val::Str(url);
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert_eq!(Ok(expected.into()), output);
     }
 
@@ -341,7 +340,7 @@ where {
         let input = Val::Node(parsed_html.clone());
 
         let expected = Val::Node(parsed_html.select_first("span").unwrap().as_node().clone());
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert_eq!(Ok(expected.into()), output);
     }
 
@@ -353,7 +352,7 @@ where {
         let input = Val::Node(parsed_html.clone());
 
         let expected = Val::Node(parsed_html.select_first("span").unwrap().as_node().clone());
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert_eq!(Ok(expected.into()), output);
     }
 
@@ -364,7 +363,7 @@ where {
         let parsed_html = parse_html(&mut html.as_bytes());
         let input = Val::Node(parsed_html.clone());
 
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert!(output.is_err());
     }
 
@@ -376,7 +375,7 @@ where {
         let input = Val::Node(parsed_html.clone());
 
         let expected = Val::Node(parsed_html.select_first("a").unwrap().as_node().clone());
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert_eq!(Ok(expected.into()), output);
     }
 
@@ -387,7 +386,7 @@ where {
         let parsed_html = parse_html(&mut html.as_bytes());
         let input = Val::Node(parsed_html.clone());
 
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert!(output.is_err());
     }
 
@@ -399,7 +398,7 @@ where {
         let input = Val::Node(parsed_html.clone());
 
         let expected = Val::Node(parsed_html.select_first("a").unwrap().as_node().clone());
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert_eq!(Ok(expected.into()), output);
     }
 
@@ -410,7 +409,7 @@ where {
         let parsed_html = parse_html(&mut html.as_bytes());
         let input = Val::Node(parsed_html.clone());
 
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert!(output.is_err());
     }
 
@@ -421,7 +420,7 @@ where {
         let parsed_html = parse_html(&mut html.as_bytes());
         let input = Val::Node(parsed_html.clone());
 
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert!(output.is_err());
     }
 
@@ -433,7 +432,7 @@ where {
         let input = Val::Node(parsed_html.clone());
 
         let expected = Val::Node(parsed_html.select_first("span").unwrap().as_node().clone());
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert_eq!(Ok(expected.into()), output);
     }
 
@@ -444,7 +443,7 @@ where {
         let parsed_html = parse_html(&mut html.as_bytes());
         let input = Val::Node(parsed_html.clone());
 
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert!(output.is_err());
     }
 
@@ -456,7 +455,7 @@ where {
         let input = Val::Node(parsed_html.clone());
 
         let expected = Val::Node(parsed_html.select_first("span").unwrap().as_node().clone());
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert_eq!(Ok(expected.into()), output);
     }
 
@@ -467,7 +466,7 @@ where {
         let parsed_html = parse_html(&mut html.as_bytes());
         let input = Val::Node(parsed_html.clone());
 
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert!(output.is_err());
     }
 
@@ -478,7 +477,7 @@ where {
         let parsed_html = parse_html(&mut html.as_bytes());
         let input = Val::Node(parsed_html.clone());
 
-        let output = compile_and_run(&src, input.into());
+        let output = compile_and_run(src, input.into());
         assert!(output.is_err());
     }
 }

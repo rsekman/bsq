@@ -4,7 +4,7 @@ use crate::error::type_error;
 use crate::val::{Val, ValResult};
 
 pub(crate) static FIND: &str = "find";
-pub(crate) fn find<'a>(tree: &Val, selector: &str) -> ValResult {
+pub(crate) fn find(tree: &Val, selector: &str) -> ValResult {
     use Val::*;
     match tree {
         Node(n) => {
@@ -16,11 +16,11 @@ pub(crate) fn find<'a>(tree: &Val, selector: &str) -> ValResult {
             })?;
             Ok(Node(n.as_node().clone()).into())
         }
-        v => Err(type_error("Node", &v)),
+        v => Err(type_error("Node", v)),
     }
 }
 pub(crate) static FIND_ALL: &str = "find_all";
-pub(crate) fn find_all<'a>(tree: &Val, selector: &str) -> ValResult {
+pub(crate) fn find_all(tree: &Val, selector: &str) -> ValResult {
     use Val::*;
     match tree {
         Node(n) => {
@@ -30,7 +30,7 @@ pub(crate) fn find_all<'a>(tree: &Val, selector: &str) -> ValResult {
                 .map(|d| Node(d.as_node().clone()));
             Ok(Vector(ns.collect()).into())
         }
-        v => Err(type_error("Node", &v)),
+        v => Err(type_error("Node", v)),
     }
 }
 
@@ -49,7 +49,7 @@ pub(crate) fn attribute(tree: &Val, attribute: &str) -> ValResult {
                 .unwrap_or_default();
             Ok(attr.into())
         }
-        v => Err(type_error("Node", &v)),
+        v => Err(type_error("Node", v)),
     }
 }
 
@@ -63,7 +63,7 @@ pub(crate) fn parent(tree: &Val) -> ValResult {
                 .ok_or_else(|| "Attempt to take parent of root element".to_owned())?;
             Ok(Node(n).into())
         }
-        v => Err(type_error("Node", &v)),
+        v => Err(type_error("Node", v)),
     }
 }
 
@@ -77,7 +77,7 @@ pub(crate) fn next_sibling(tree: &Val) -> ValResult {
                 .ok_or_else(|| "Element has no next sibling".to_owned())?;
             Ok(Node(n).into())
         }
-        v => Err(type_error("Node", &v)),
+        v => Err(type_error("Node", v)),
     }
 }
 
@@ -108,7 +108,7 @@ pub(crate) fn next_element(tree: &Val) -> ValResult {
         Node(n) => find_element(n.clone(), |n| n.next_sibling())
             .map_err(|_| "Element has no next sibling element".to_owned())
             .map(|n| Node(n).into()),
-        v => Err(type_error("Node", &v)),
+        v => Err(type_error("Node", v)),
     }
 }
 
@@ -122,7 +122,7 @@ pub(crate) fn previous_sibling(tree: &Val) -> ValResult {
                 .ok_or_else(|| "Element has no previous sibling".to_owned())?;
             Ok(Node(n).into())
         }
-        v => Err(type_error("Node", &v)),
+        v => Err(type_error("Node", v)),
     }
 }
 
@@ -133,6 +133,6 @@ pub(crate) fn previous_element(tree: &Val) -> ValResult {
         Node(n) => find_element(n.clone(), |n| n.previous_sibling())
             .map_err(|_| "Element has no previous_element element".to_owned())
             .map(|n| Node(n).into()),
-        v => Err(type_error("Node", &v)),
+        v => Err(type_error("Node", v)),
     }
 }

@@ -29,5 +29,5 @@ fn main() -> Result<(), Box<dyn Error>> {
             let _ = program.run(&mut f)?;
         }
     }
-    return Ok(());
+    Ok(())
 }

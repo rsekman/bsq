@@ -21,11 +21,11 @@ impl Program {
             .from_utf8()
             .read_from(input)
             .map_err(|e| e.to_string())?;
-        let ret = {
+
+        {
             let state = Rc::new(RefCell::new(State::default()));
             self.ast.eval(Val::Node(document).into(), state)
-        };
-        ret
+        }
     }
 }
 

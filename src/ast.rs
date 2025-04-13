@@ -6,11 +6,11 @@ use nom::{
     character::complete::{alpha1, alphanumeric1, isize, multispace0, multispace1},
     combinator::{eof, map, peek, recognize, value, verify},
     multi::{many0_count, separated_list0, separated_list1},
-    sequence::{delimited, pair, preceded, terminated},
+    sequence::{delimited, pair, preceded, separated_pair, terminated},
     IResult, Parser,
 };
 
-use crate::builtins::ATTRIBUTE;
+use crate::builtins::{ATTRIBUTE, SET_ATTRIBUTE};
 use crate::keywords::*;
 
 fn kw_with_ws<W, I, E>(kw: W) -> impl Parser<I, Output = I, Error = E>
@@ -58,7 +58,13 @@ fn pipe(input: &str) -> IResult<&str, Exp> {
 }
 
 fn filter(input: &str) -> IResult<&str, Exp> {
-    alt((if_then_else, list, map(term, Exp::Term))).parse(input)
+    alt((
+        if_then_else,
+        list,
+        map(term, Exp::Term),
+        delimited(kw_with_ws(PAREN_OPEN), exp, kw_with_ws(PAREN_CLOSE)),
+    ))
+    .parse(input)
 }
 
 fn list(input: &str) -> IResult<&str, Exp> {
@@ -132,6 +138,7 @@ fn term_separator(input: &str) -> IResult<&str, &str> {
         eof,
         multispace1,
         // These tokens need to be unconsumed so parent parsers will still see them
+        peek(kw_with_ws(PIPE)),
         peek(kw_with_ws(SEMICOLON)),
         peek(kw_with_ws(COMMA)),
         peek(kw_with_ws(BRACKET_CLOSE)),
@@ -162,6 +169,7 @@ fn term(input: &str) -> IResult<&str, Term> {
             value(Term::EmptyDict, empty_dict),
             value(Term::EmptyList, empty_list),
             terms![
+                attribute_assignment,
                 attribute_access,
                 map(identifier, Term::Identifier),
                 value(Term::Bool(false), kw_with_ws(FALSE)),
@@ -214,21 +222,28 @@ fn args(input: &str) -> IResult<&str, Args> {
     separated_list0(kw_with_ws(SEMICOLON), exp).parse(input)
 }
 
-fn attribute_access(input: &str) -> IResult<&str, Term> {
+fn attribute_accessor(input: &str) -> IResult<&str, Exp> {
     preceded(
         kw_with_ws(THIS),
         alt((
-            map(identifier_part, |a| {
-                Term::Call(
-                    vec![ATTRIBUTE.to_owned()],
-                    vec![Exp::Term(Term::Str(a.to_owned()))].into(),
-                )
-            }),
-            map(
-                delimited(kw_with_ws(BRACKET_OPEN), exp, kw_with_ws(BRACKET_CLOSE)),
-                |e| Term::Call(vec![ATTRIBUTE.to_owned()], vec![e].into()),
-            ),
+            map(identifier_part, |a| Exp::Term(Term::Str(a.to_owned()))),
+            delimited(kw_with_ws(BRACKET_OPEN), exp, kw_with_ws(BRACKET_CLOSE)),
         )),
+    )
+    .parse(input)
+}
+
+fn attribute_access(input: &str) -> IResult<&str, Term> {
+    map(attribute_accessor, |a| {
+        Term::Call(vec![ATTRIBUTE.to_owned()], vec![a].into())
+    })
+    .parse(input)
+}
+
+fn attribute_assignment(input: &str) -> IResult<&str, Term> {
+    map(
+        separated_pair(attribute_accessor, kw_with_ws(ASSIGN), filter),
+        |(a, v)| Term::Call(vec![SET_ATTRIBUTE.to_owned()], vec![a, v].into()),
     )
     .parse(input)
 }
@@ -245,6 +260,13 @@ mod tests {
         ($($str:expr),*) => ({
             (vec![$($str.to_string()),*])
         });
+    }
+
+    /// Create the AST representation of a string literal
+    macro_rules! str_term {
+        ($str:expr) => {{
+            (Exp::Term(Term::Str($str.to_string())))
+        }};
     }
     /// Create the AST representation of an identifier from a list of parts
     /// I.e., identifier!["foo", "bar"] is what "foo::bar" should parse into
@@ -358,10 +380,7 @@ mod tests {
             let input = ".foo";
             let parsed = term.parse(input);
             assert_parse(
-                Term::Call(
-                    string_vec![ATTRIBUTE],
-                    vec![Exp::Term(Term::Str("foo".to_owned()))].into(),
-                ),
+                Term::Call(string_vec![ATTRIBUTE], vec![str_term!("foo")].into()),
                 parsed,
             );
         }
@@ -372,6 +391,32 @@ mod tests {
             let parsed = term.parse(input);
             assert_parse(
                 Term::Call(string_vec![ATTRIBUTE], vec![pipe!["foo", "bar"]].into()),
+                parsed,
+            );
+        }
+
+        #[test]
+        fn attribute_assignment() {
+            let input = ".foo = bar";
+            let parsed = term.parse(input);
+            assert_parse(
+                Term::Call(
+                    string_vec![SET_ATTRIBUTE],
+                    vec![str_term!("foo"), Exp::Term(identifier!["bar"])].into(),
+                ),
+                parsed,
+            );
+        }
+
+        #[test]
+        fn attribute_assignment_expr() {
+            let input = ".[foo | bar] = baz";
+            let parsed = term.parse(input);
+            assert_parse(
+                Term::Call(
+                    string_vec![SET_ATTRIBUTE],
+                    vec![pipe!["foo", "bar"], Exp::Term(identifier!["baz"])].into(),
+                ),
                 parsed,
             );
         }
@@ -404,6 +449,35 @@ mod tests {
             let expected = Exp::Pipe(vec![
                 Exp::Term(Term::Call(string_vec!["f"], vec![pipe!["a"]].into())),
                 Exp::Term(Term::Call(string_vec!["g"], vec![pipe!["b"]].into())),
+            ]);
+
+            assert_parse(expected, parsed);
+        }
+
+        #[test]
+        fn call_empty() {
+            let input = "f(a) | g()";
+            let parsed = exp(input);
+
+            let expected = Exp::Pipe(vec![
+                Exp::Term(Term::Call(string_vec!["f"], vec![pipe!["a"]].into())),
+                Exp::Term(Term::Call(string_vec!["g"], vec![].into())),
+            ]);
+
+            assert_parse(expected, parsed);
+        }
+
+        #[test]
+        fn call_after_assignment() {
+            let input = ".id = foo | g()";
+            let parsed = exp(input);
+
+            let expected = Exp::Pipe(vec![
+                Exp::Term(Term::Call(
+                    string_vec!["set_attribute"],
+                    vec![str_term!("id"), Exp::Term(identifier!["foo"])].into(),
+                )),
+                Exp::Term(Term::Call(string_vec!["g"], vec![].into())),
             ]);
 
             assert_parse(expected, parsed);

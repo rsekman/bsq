@@ -53,6 +53,22 @@ pub(crate) fn attribute(tree: &Val, attribute: &str) -> ValResult {
     }
 }
 
+pub(crate) static SET_ATTRIBUTE: &str = "set_attribute";
+pub(crate) fn set_attribute(tree: &Val, attribute: &str, value: &str) -> ValResult {
+    use Val::*;
+    match tree {
+        Node(n) => {
+            let element = n
+                .as_element()
+                .ok_or_else(|| "Expected an Element, got {}".to_owned())?;
+            let mut attrs = element.attributes.borrow_mut();
+            attrs.insert(attribute, value.to_owned());
+            Ok(Node(n.clone()).into())
+        }
+        v => Err(type_error("Node", v)),
+    }
+}
+
 pub(crate) static PARENT: &str = "parent";
 pub(crate) fn parent(tree: &Val) -> ValResult {
     use Val::*;

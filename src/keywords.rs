@@ -15,6 +15,8 @@ pub(crate) const COMMA: &str = ",";
 pub(crate) const THIS: &str = ".";
 pub(crate) const PARENT: &str = "..";
 
+pub(crate) const ASSIGN: &str = "=";
+
 pub(crate) const PAREN_OPEN: &str = "(";
 pub(crate) const PAREN_CLOSE: &str = ")";
 

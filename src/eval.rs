@@ -5,8 +5,8 @@ use std::rc::Rc;
 use crate::ast::{Exp, Identifier, Term, AST};
 use crate::builtins::{
     attribute, find, find_all, next_element, next_sibling, parent, previous_element,
-    previous_sibling, ATTRIBUTE, FIND, FIND_ALL, NEXT_ELEMENT, NEXT_SIBLING, PARENT,
-    PREVIOUS_ELEMENT, PREVIOUS_SIBLING,
+    previous_sibling, set_attribute, ATTRIBUTE, FIND, FIND_ALL, NEXT_ELEMENT, NEXT_SIBLING, PARENT,
+    PREVIOUS_ELEMENT, PREVIOUS_SIBLING, SET_ATTRIBUTE,
 };
 use crate::error::type_error;
 use crate::val::{Val, ValRef, ValResult};
@@ -35,6 +35,13 @@ impl Default for State {
                 Func {
                     arity: 1,
                     func: Rc::new(builtins::attribute),
+                },
+            ),
+            (
+                vec![SET_ATTRIBUTE.to_owned()],
+                Func {
+                    arity: 2,
+                    func: Rc::new(builtins::set_attribute),
                 },
             ),
             // Navigation
@@ -173,6 +180,21 @@ mod builtins {
             } else {
                 Err(type_error("String", &input))
             }
+        };
+        Box::new(lambda)
+    }
+
+    pub(crate) fn set_attribute(args: ArgList) -> Box<dyn Eval> {
+        let lambda = move |input: ValRef, state: StateRef| {
+            let attr = args[0].eval(input.clone(), state.clone())?;
+            let Val::Str(attr) = attr.as_ref() else {
+                Err(type_error("String", &input))?
+            };
+            let value = args[1].eval(input.clone(), state)?;
+            let Val::Str(value) = value.as_ref() else {
+                Err(type_error("String", &input))?
+            };
+            super::set_attribute(input.as_ref(), attr, value)
         };
         Box::new(lambda)
     }
@@ -333,6 +355,42 @@ where {
     }
 
     #[test]
+    fn set_attribute() {
+        let url_before = "https:://example.com".to_string();
+        let url_after = "https:://github.com".to_string();
+        let src = format!(".href = \"{url_after}\" | .href");
+        let html = format!("<a href=\"{url_before}\">link</a>");
+        let a = parse_html(&mut html.as_bytes())
+            .select_first("a")
+            .unwrap()
+            .as_node()
+            .clone();
+        let input = Val::Node(a);
+
+        let expected = Val::Str(url_after);
+        let output = compile_and_run(&src, input.into());
+        assert_eq!(Ok(expected.into()), output);
+    }
+
+    #[test]
+    fn set_attribute_from_call() {
+        let url_before = "https:://example.com".to_string();
+        let url_after = "https:://github.com".to_string();
+        let src = format!(".href = .id | .href");
+        let html = format!("<a id=\"{url_after}\" href=\"{url_before}\">link</a>");
+        let a = parse_html(&mut html.as_bytes())
+            .select_first("a")
+            .unwrap()
+            .as_node()
+            .clone();
+        let input = Val::Node(a);
+
+        let expected = Val::Str(url_after);
+        let output = compile_and_run(&src, input.into());
+        assert_eq!(Ok(expected.into()), output);
+    }
+
+    #[test]
     fn parent() {
         let src = "find(\"a\") | parent()";
         let html = "<span><a>Link</a></span>";
@@ -420,6 +478,8 @@ where {
         let parsed_html = parse_html(&mut html.as_bytes());
         let input = Val::Node(parsed_html.clone());
 
+        let (_, compiled) = program(&src).unwrap();
+        println!("{:?}", compiled.exp);
         let output = compile_and_run(src, input.into());
         assert!(output.is_err());
     }

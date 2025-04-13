@@ -120,4 +120,9 @@ http://example.com/tillie
     bsq handles HTML elements as first-class values, but can also output values that can be serialised as JSON.
   - [faq](https://github.com/jzelinskie/faq) is another adaptor that first converts into JSON.
   - [yq](https://github.com/kislyuk/yq) contains xq, which converts XML into JSON. Most HTML is not valid XML.
-  - [hq](https://github.com/rbwinslow/hq) uses difficult-to-understand XPath syntax instead of the easy-flowing functional language of jq. 
+  - [hq](https://github.com/rbwinslow/hq) uses difficult-to-understand XPath syntax instead of the easy-flowing functional language of jq.
+ 
+  ## Name
+
+  **b**eautiful**soup** + j**q** = **bsq**.
+  Additionally, a bisque is a *soup* made with *crab*, and bsq is written in Rust.

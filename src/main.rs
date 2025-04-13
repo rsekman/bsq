@@ -22,11 +22,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     if args.input.is_empty() {
         let stdin = std::io::stdin();
         let mut stdin = stdin.lock();
-        let _ = program.run(&mut stdin)?;
+        let val = program.run(&mut stdin)?;
+        println!("{val:?}");
     } else {
         for path in args.input {
             let mut f = File::open(path)?;
-            let _ = program.run(&mut f)?;
+            let val = program.run(&mut f)?;
+            println!("{val:?}");
         }
     }
     Ok(())

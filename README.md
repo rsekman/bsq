@@ -4,6 +4,18 @@
 
 `bsq` (pronounced "bisque") is a [jq](https://jqlang.org/)-like HTML processor.
 It aims to provide the power of [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/bs4/doc/#) with the ease of writing filters with `jq`.
+Most of the time when I had to interact with HTML I would write some Python with `from bs4 import BeautifulSoup` at the top.
+This is never particularly difficult, but it involves overhead like handling I/O and quite a lot of boilerplate for what should be short throw-away scripts.
+If I have JSON, on the other hand, `jq` takes care of all that for me and inspecting it can be as easy as
+```
+% jq 'map(.key)' < input.json
+```
+Surely there should be a tool that makes, say, extracting all the linked-to URLS in a document as easy as
+```
+% bsq 'find_all("a") | map(.href)' < input.html
+```
+I went looking, found many tools that *claimed* to be "jq for HTML", but none that lived up to the promise (see [Alternatives](#alternatives)).
+So I decided to write it myself.
 
 ## Examples
 
@@ -46,7 +58,7 @@ Let's use the same example document as BeautifulSoup:
 Some things you can do with bsq are
 - Find elements with CSS selectors
 ```html
-% bsq 'find_all("a.sister")' < input.html
+% bsq 'find_all("a.sister")' input.html
 <a class="sister" href="http://example.com/elsie" id="link1">
   Elsie
 </a>
@@ -59,20 +71,20 @@ Some things you can do with bsq are
 ```
 - Extract contents
 ```html
-% bsq 'find_all("a.sister") | map(stripped_strings)' < input.html
+% bsq 'find_all("a.sister") | map(stripped_strings)' input.html
 Elsie
 Lacie
 Tillie
 ```
 - Navigate the tree
 ```html
-% bsq 'find("a.sister") | next_element' < input.html
+% bsq 'find("a.sister") | next_element' input.html
 <a class="sister" href="http://example.com/lacie" id="link2">
   Lacie
 </a>
 ```
 ```html
-% bsq 'find("a#link3") | previous_element' < input.html
+% bsq 'find("a#link3") | previous_element' input.html
 <a class="sister" href="http://example.com/lacie" id="link2">
   Lacie
 </a>
@@ -80,17 +92,17 @@ Tillie
 ```
 - Access and manipulate attributes
 ```html
-% bsq 'find("a.sister") | .href` < input.html
+% bsq 'find("a.sister") | .href` input.html
 http://example.com/elsie
 ```
 ```html
-% bsq 'find("a.sister") | .href = "http://github.com/elsie"` < input.html
+% bsq 'find("a.sister") | .href = "http://github.com/elsie"` input.html
 <a class="sister" href="http://github.com/elsie" id="link1">
   Elsie
 </a>
 ```
 ```
-% bsq 'find_all("a.sister") | map(.href)' < input.html
+% bsq 'find_all("a.sister") | map(.href)' input.html
 http://example.com/elsie
 http://example.com/lacie
 http://example.com/tillie

@@ -36,39 +36,6 @@ where
     }
 }
 
-fn attribute_builtin(args: ArgList) -> Box<dyn Eval> {
-    let lambda = move |input: ValRef, state| {
-        if let Val::Str(attr) = args[0].eval(input.clone(), state)?.as_ref() {
-            attribute(input.as_ref(), &attr)
-        } else {
-            Err(type_error("String", &input))
-        }
-    };
-    Box::new(lambda)
-}
-
-fn select_builtin(args: ArgList) -> Box<dyn Eval> {
-    let lambda = move |input: ValRef, state| {
-        if let Val::Str(sel) = args[0].eval(input.clone(), state)?.as_ref() {
-            select(input.as_ref(), &sel)
-        } else {
-            Err(type_error("String", &input))
-        }
-    };
-    Box::new(lambda)
-}
-
-fn select_all_builtin(args: ArgList) -> Box<dyn Eval> {
-    let lambda = move |input: ValRef, state| {
-        if let Val::Str(sel) = args[0].eval(input.clone(), state)?.as_ref() {
-            select_all(input.as_ref(), &sel)
-        } else {
-            Err(type_error("String", &input))
-        }
-    };
-    Box::new(lambda)
-}
-
 impl Default for State {
     fn default() -> Self {
         let builtins = HashMap::<Identifier, Func>::from([
@@ -76,21 +43,21 @@ impl Default for State {
                 vec![SELECT.to_owned()],
                 Func {
                     arity: 1,
-                    func: Rc::new(select_builtin),
+                    func: Rc::new(builtins::select),
                 },
             ),
             (
                 vec![SELECT_ALL.to_owned()],
                 Func {
                     arity: 1,
-                    func: Rc::new(select_all_builtin),
+                    func: Rc::new(builtins::select_all),
                 },
             ),
             (
                 vec![ATTRIBUTE.to_owned()],
                 Func {
                     arity: 1,
-                    func: Rc::new(attribute_builtin),
+                    func: Rc::new(builtins::attribute),
                 },
             ),
         ]);
@@ -152,6 +119,43 @@ impl Eval for Term {
             Term::Float(f) => Ok(Val::Float(f.clone()).into()),
             _ => todo!("{self:?}: Not implemented"),
         }
+    }
+}
+
+mod builtins {
+    use super::*;
+
+    pub(crate) fn attribute(args: ArgList) -> Box<dyn Eval> {
+        let lambda = move |input: ValRef, state| {
+            if let Val::Str(attr) = args[0].eval(input.clone(), state)?.as_ref() {
+                super::attribute(input.as_ref(), &attr)
+            } else {
+                Err(type_error("String", &input))
+            }
+        };
+        Box::new(lambda)
+    }
+
+    pub(crate) fn select(args: ArgList) -> Box<dyn Eval> {
+        let lambda = move |input: ValRef, state| {
+            if let Val::Str(sel) = args[0].eval(input.clone(), state)?.as_ref() {
+                super::select(input.as_ref(), &sel)
+            } else {
+                Err(type_error("String", &input))
+            }
+        };
+        Box::new(lambda)
+    }
+
+    pub(crate) fn select_all(args: ArgList) -> Box<dyn Eval> {
+        let lambda = move |input: ValRef, state| {
+            if let Val::Str(sel) = args[0].eval(input.clone(), state)?.as_ref() {
+                super::select_all(input.as_ref(), &sel)
+            } else {
+                Err(type_error("String", &input))
+            }
+        };
+        Box::new(lambda)
     }
 }
 

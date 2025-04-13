@@ -17,24 +17,11 @@ struct Func {
     func: Rc<dyn Fn(ArgList) -> Box<dyn Eval>>,
 }
 
-pub(crate) trait Eval {
-    fn eval(&self, input: ValRef, state: StateRef) -> ValResult;
-}
-
 pub(crate) struct State {
     funcs: HashMap<Identifier, Func>,
     vars: HashMap<Identifier, Val>,
 }
 type StateRef = Rc<RefCell<State>>;
-
-impl<'a, F> Eval for F
-where
-    F: Fn(ValRef, StateRef) -> ValResult,
-{
-    fn eval(&self, input: ValRef, state: StateRef) -> ValResult {
-        self(input, state)
-    }
-}
 
 impl Default for State {
     fn default() -> Self {
@@ -65,6 +52,19 @@ impl Default for State {
             funcs: builtins,
             vars: HashMap::default(),
         }
+    }
+}
+
+pub(crate) trait Eval {
+    fn eval(&self, input: ValRef, state: StateRef) -> ValResult;
+}
+
+impl<'a, F> Eval for F
+where
+    F: Fn(ValRef, StateRef) -> ValResult,
+{
+    fn eval(&self, input: ValRef, state: StateRef) -> ValResult {
+        self(input, state)
     }
 }
 

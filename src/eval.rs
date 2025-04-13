@@ -3,9 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::ast::{Exp, Identifier, Term, AST};
-use crate::builtins::{
-    attribute, parent, select, select_all, ATTRIBUTE, PARENT, SELECT, SELECT_ALL,
-};
+use crate::builtins::{attribute, find, find_all, parent, ATTRIBUTE, FIND, FIND_ALL, PARENT};
 use crate::error::type_error;
 use crate::val::{Val, ValRef, ValResult};
 
@@ -43,17 +41,17 @@ impl Default for State {
                 },
             ),
             (
-                vec![SELECT.to_owned()],
+                vec![FIND.to_owned()],
                 Func {
                     arity: 1,
-                    func: Rc::new(builtins::select),
+                    func: Rc::new(builtins::find),
                 },
             ),
             (
-                vec![SELECT_ALL.to_owned()],
+                vec![FIND_ALL.to_owned()],
                 Func {
                     arity: 1,
-                    func: Rc::new(builtins::select_all),
+                    func: Rc::new(builtins::find_all),
                 },
             ),
         ]);
@@ -151,10 +149,10 @@ mod builtins {
         Box::new(lambda)
     }
 
-    pub(crate) fn select(args: ArgList) -> Box<dyn Eval> {
+    pub(crate) fn find(args: ArgList) -> Box<dyn Eval> {
         let lambda = move |input: ValRef, state| {
             if let Val::Str(sel) = args[0].eval(input.clone(), state)?.as_ref() {
-                super::select(input.as_ref(), &sel)
+                super::find(input.as_ref(), &sel)
             } else {
                 Err(type_error("String", &input))
             }
@@ -162,10 +160,10 @@ mod builtins {
         Box::new(lambda)
     }
 
-    pub(crate) fn select_all(args: ArgList) -> Box<dyn Eval> {
+    pub(crate) fn find_all(args: ArgList) -> Box<dyn Eval> {
         let lambda = move |input: ValRef, state| {
             if let Val::Str(sel) = args[0].eval(input.clone(), state)?.as_ref() {
-                super::select_all(input.as_ref(), &sel)
+                super::find_all(input.as_ref(), &sel)
             } else {
                 Err(type_error("String", &input))
             }
@@ -210,8 +208,8 @@ where {
     }
 
     #[test]
-    fn select() {
-        let src = "select(\"a\")";
+    fn find() {
+        let src = "find(\"a\")";
         let html = "<a>link</a>";
         let parsed_html = parse_html(&mut html.as_bytes());
         let input = Val::Node(parsed_html.clone());
@@ -222,8 +220,8 @@ where {
     }
 
     #[test]
-    fn select_all() {
-        let src = "select_all(\"li\")";
+    fn find_all() {
+        let src = "find_all(\"li\")";
         let html = "<li>One</li> <li>Two</li>";
         let parsed_html = parse_html(&mut html.as_bytes());
         let input = Val::Node(parsed_html.clone());
@@ -241,8 +239,8 @@ where {
     }
 
     #[test]
-    fn select_all_no_matches() {
-        let src = "select_all(\"a\")";
+    fn find_all_no_matches() {
+        let src = "find_all(\"a\")";
         let html = "<li>One</li> <li>Two</li>";
         let parsed_html = parse_html(&mut html.as_bytes());
         let input = Val::Node(parsed_html.clone());
@@ -270,8 +268,8 @@ where {
     }
 
     #[test]
-    fn select_attribute() {
-        let src = "select(\"a\") | .href";
+    fn find_attribute() {
+        let src = "find(\"a\") | .href";
         let url = "https:://example.com".to_string();
         let html = format!("<a href=\"{url}\">link</a>");
         let parsed_html = parse_html(&mut html.as_bytes());
@@ -284,7 +282,7 @@ where {
 
     #[test]
     fn parent() {
-        let src = "select(\"a\") | parent()";
+        let src = "find(\"a\") | parent()";
         let html = "<span><a>Link</a></span>";
         let parsed_html = parse_html(&mut html.as_bytes());
         let input = Val::Node(parsed_html.clone());
@@ -296,7 +294,7 @@ where {
 
     #[test]
     fn parent_dotdot() {
-        let src = "select(\"a\") | ..";
+        let src = "find(\"a\") | ..";
         let html = "<span><a>Link</a></span>";
         let parsed_html = parse_html(&mut html.as_bytes());
         let input = Val::Node(parsed_html.clone());

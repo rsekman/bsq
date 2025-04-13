@@ -1,8 +1,8 @@
 use crate::error::type_error;
 use crate::val::{Val, ValResult};
 
-pub(crate) static SELECT: &str = "select";
-pub(crate) fn select<'a>(tree: &Val, selector: &str) -> ValResult {
+pub(crate) static FIND: &str = "find";
+pub(crate) fn find<'a>(tree: &Val, selector: &str) -> ValResult {
     use Val::*;
     match tree {
         Node(n) => {
@@ -17,8 +17,8 @@ pub(crate) fn select<'a>(tree: &Val, selector: &str) -> ValResult {
         v => Err(type_error("Node", &v)),
     }
 }
-pub(crate) static SELECT_ALL: &str = "select_all";
-pub(crate) fn select_all<'a>(tree: &Val, selector: &str) -> ValResult {
+pub(crate) static FIND_ALL: &str = "find_all";
+pub(crate) fn find_all<'a>(tree: &Val, selector: &str) -> ValResult {
     use Val::*;
     match tree {
         Node(n) => {

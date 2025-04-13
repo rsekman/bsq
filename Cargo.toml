@@ -8,3 +8,4 @@ kuchiki = "0.8.1"
 html5ever = "0.25.1"
 nom = "8.0.0"
 clap = { version = "4.5.36", features = ["derive"] }
+casey = "0.4.2"

@@ -2,6 +2,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use casey::upper;
+
 use crate::ast::{Exp, Identifier, Term, AST};
 use crate::builtins::{
     attribute, find, find_all, next_element, next_sibling, parent, previous_element,
@@ -27,73 +29,29 @@ pub(crate) struct State {
 }
 type StateRef = Rc<RefCell<State>>;
 
+macro_rules! builtins {
+    ( $( ($name:ident, $arity:literal) ),* ) => {[
+        $(
+            (
+                vec![upper!($name).to_owned()],
+                Func { arity: $arity, func: Rc::new(builtins::$name) }
+            )
+        ),*
+    ]};
+}
+
 impl Default for State {
     fn default() -> Self {
-        let builtins = HashMap::<Identifier, Func>::from([
-            (
-                vec![ATTRIBUTE.to_owned()],
-                Func {
-                    arity: 1,
-                    func: Rc::new(builtins::attribute),
-                },
-            ),
-            (
-                vec![SET_ATTRIBUTE.to_owned()],
-                Func {
-                    arity: 2,
-                    func: Rc::new(builtins::set_attribute),
-                },
-            ),
-            // Navigation
-            (
-                vec![FIND.to_owned()],
-                Func {
-                    arity: 1,
-                    func: Rc::new(builtins::find),
-                },
-            ),
-            (
-                vec![FIND_ALL.to_owned()],
-                Func {
-                    arity: 1,
-                    func: Rc::new(builtins::find_all),
-                },
-            ),
-            (
-                vec![PARENT.to_owned()],
-                Func {
-                    arity: 0,
-                    func: Rc::new(builtins::parent),
-                },
-            ),
-            (
-                vec![NEXT_SIBLING.to_owned()],
-                Func {
-                    arity: 0,
-                    func: Rc::new(builtins::next_sibling),
-                },
-            ),
-            (
-                vec![NEXT_ELEMENT.to_owned()],
-                Func {
-                    arity: 0,
-                    func: Rc::new(builtins::next_element),
-                },
-            ),
-            (
-                vec![PREVIOUS_SIBLING.to_owned()],
-                Func {
-                    arity: 0,
-                    func: Rc::new(builtins::previous_sibling),
-                },
-            ),
-            (
-                vec![PREVIOUS_ELEMENT.to_owned()],
-                Func {
-                    arity: 0,
-                    func: Rc::new(builtins::previous_element),
-                },
-            ),
+        let builtins = HashMap::<Identifier, Func>::from(builtins![
+            (attribute, 1),
+            (set_attribute, 2),
+            (find, 1),
+            (find_all, 1),
+            (parent, 0),
+            (next_sibling, 0),
+            (next_element, 0),
+            (previous_sibling, 0),
+            (previous_element, 0)
         ]);
         State {
             funcs: builtins,
